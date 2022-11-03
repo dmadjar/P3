@@ -15,15 +15,15 @@ using namespace std;
 
 struct Column {
     string columnName;
-    string columnType; //Not sure if string∫
+    char columnType; //Not sure if string∫
     uint32_t index;
 };
 
 class Table {
-private:
-    string tableName;
     
 public:
+    string tableName;
+    
     unordered_map<string, Column> nameToIndex; // column name to what index it is in the vector<Columns>
     unordered_map<TableEntry, vector<uint32_t>> hashIndex;
     
@@ -58,12 +58,12 @@ public:
             row.reserve(columns.size());
             
             for(uint32_t j = 0; j < columns.size(); j++) {
-                if (columns[j].columnType[0] == 'd') { //double
+                if (columns[j].columnType == 'd') { //double
                     double x;
                     cin >> x;
                    
                     row.emplace_back(x);
-                } else if (columns[j].columnType[0] == 'b') { //bool
+                } else if (columns[j].columnType == 'b') { //bool
                     string x;
                     cin >> x;
                     
@@ -72,7 +72,7 @@ public:
                     } else {
                         row.emplace_back(false);
                     }
-                } else if (columns[j].columnType[0] == 'i') { //int
+                } else if (columns[j].columnType == 'i') { //int
                     int x;
                     cin >> x;
                    
@@ -249,6 +249,12 @@ public:
         cout << "Created " << indexType << " index for table " << tableName << " on column " << colName << "\n";
     }
     
+    void generalGenerate(uint32_t colIndex, unordered_map<TableEntry, vector<uint32_t>> &mp) {
+        for(uint32_t i = 0; i < data.size(); i++) {
+            mp[data[i][colIndex]].push_back(i);
+        }
+    }
+    
     bool columnIsFound(string columnName) {
         if (nameToIndex.find(columnName) != nameToIndex.end()) {
             return true;
@@ -274,16 +280,16 @@ public:
         cin >> colName;
         cin >> op;
         
-        string type = nameToIndex[colName].columnType;
+        char type = nameToIndex[colName].columnType;
         uint32_t col = nameToIndex[colName].index;
         
-        if (type[0] == 'd') { //double
+        if (type == 'd') { //double
              double x;
              cin >> x;
             
              TableEntry value{x};
              deleteHelper(value, col, op);
-        } else if (type[0] == 'b') { //bool
+        } else if (type == 'b') { //bool
              string x;
              cin >> x;
              
@@ -294,7 +300,7 @@ public:
                  TableEntry value{false};
                  deleteHelper(value, col, op);
              }
-         } else if (type[0] == 'i') { //int
+         } else if (type == 'i') { //int
              int x;
              cin >> x;
              
@@ -326,7 +332,7 @@ public:
     void finalHelper(Compare compare) {
         uint32_t oldSize = static_cast<uint32_t>(size(data));
         
-        remove_if(data.begin(), data.end(), compare);
+        data.erase(remove_if(data.begin(), data.end(), compare), data.end());
         
         uint32_t newSize = static_cast<uint32_t>(size(data));;
         
@@ -446,6 +452,17 @@ public:
             cin >> command;
             
             tables[tableName].deleteRows();
+        } else if (command[0] == 'J') {
+            string tableOne;
+            string tableTwo;
+            
+            cin >> tableOne;
+            cin >> command; //and
+            cin >> tableTwo;
+            
+            cin >> command; //where
+            
+            join(tables[tableOne], tables[tableTwo]);
         }
     }
     
@@ -477,7 +494,7 @@ public:
         
         for(uint32_t i = 0; i < size; i++) {
             Column c;
-            c.columnType = typeName[0];
+            c.columnType = typeName[0][0];
             c.columnName = typeName[i + size];
             c.index = i;
             tables[tableName].columns[i] = c;
@@ -507,6 +524,69 @@ public:
         } else {
             return false;
         }
+    }
+    
+    void join(Table &tableOne, Table &tableTwo) {
+        unordered_map<TableEntry, vector<uint32_t>> generalHash;
+        
+        string tableOneColumn;
+        string tableTwoColumn;
+        string blank;
+        
+        cin >> tableOneColumn;
+        cin >> blank;
+        cin >> tableTwoColumn;
+        
+        uint32_t colOneIndex = tableOne.nameToIndex[tableOneColumn].index;
+        //char colOneType = tableOne.nameToIndex[tableOneColumn].columnType;
+        
+        uint32_t colTwoIndex = tableTwo.nameToIndex[tableTwoColumn].index;
+        
+        cin >> blank; //and
+        cin >> blank; //print
+        
+        uint32_t numCols;
+        cin >> numCols;
+        
+        vector<pair<string, uint32_t>> nameToTable;
+        nameToTable.reserve(numCols);
+        for(uint32_t i = 0; i < numCols; i++) {
+            string colName;
+            uint32_t whichTable;
+            cin >> colName;
+            cin >> whichTable;
+            nameToTable.push_back(make_pair(colName, whichTable));
+        }
+        
+        if (tableTwo.isHash != 1 || tableTwo.columnNameIndex != tableTwoColumn) {
+            tableTwo.generalGenerate(colTwoIndex, generalHash);
+        }
+        
+        uint32_t rowsPrinted = 0;
+        
+        for(uint32_t i = 0; i < tableOne.data.size(); i++) {
+            if (generalHash.find(tableOne.data[i][colOneIndex]) != generalHash.end()) {
+                for(uint32_t j = 0; j < generalHash[tableOne.data[i][colOneIndex]].size(); j++) {
+                    for(uint32_t k = 0; k < nameToTable.size(); k++) {
+                        string columnName =  nameToTable[k].first;
+                        uint32_t table = nameToTable[k].second;
+                        
+                        if (table == 1) {
+                            uint32_t colIndex = tableOne.nameToIndex[columnName].index;
+                            cout << tableOne.data[i][colIndex] << " ";
+                        } else if (table == 2) {
+                            uint32_t colIndex = tableTwo.nameToIndex[columnName].index;
+                            cout << tableTwo.data[generalHash[tableOne.data[i][colOneIndex]][j]][colIndex] << " ";
+                        }
+                    }
+                    
+                    rowsPrinted++;
+                    cout << "\n";
+                }
+            }
+        }
+        
+        cout << "Printed " << rowsPrinted << " rows from joining " << tableOne.tableName << " to " << tableTwo.tableName << "\n";
     }
 };
 
